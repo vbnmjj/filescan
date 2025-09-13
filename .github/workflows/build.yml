@@ -101,7 +101,8 @@ jobs:
     needs: [build-windows-x86, build-cross-platform]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
+    permissions:
+      contents: write  # 添加这一行
     steps:
     - name: Download all artifacts
       uses: actions/download-artifact@v4
