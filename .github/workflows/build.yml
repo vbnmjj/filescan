@@ -1,0 +1,138 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows-x86:
+    name: Build Windows x86
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: i686-pc-windows-msvc
+        override: true
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Build for Windows x86
+      run: cargo build --release --target i686-pc-windows-msvc
+    
+    - name: Upload Windows x86 artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: filescan-windows-x86
+        path: target/i686-pc-windows-msvc/release/filescan.exe
+        retention-days: 30
+
+  build-cross-platform:
+    name: Build Cross Platform
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact-name: filescan-linux-x64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact-name: filescan-macos-x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact-name: filescan-windows-x64
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        override: true
+    
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Build
+      run: cargo build --release --target ${{ matrix.target }}
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.artifact-name }}
+        path: target/${{ matrix.target }}/release/filescan${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        retention-days: 30
+
+  create-release:
+    name: Create Release
+    needs: [build-windows-x86, build-cross-platform]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        body: |
+          ## 文件扫描工具 v${{ github.run_number }}
+          
+          ### 下载
+          - **Windows x86**: filescan-windows-x86.zip
+          - **Windows x64**: filescan-windows-x64.zip  
+          - **Linux x64**: filescan-linux-x64.zip
+          - **macOS x64**: filescan-macos-x64.zip
+          
+          ### 使用方法
+          ```bash
+          ./filescan <目录路径> [后缀1,后缀2,...]
+          ```
+          
+          示例：
+          ```bash
+          ./filescan /Users/abc/tools property,ini
+          ```
+        files: |
+          filescan-windows-x86/filescan.exe
+          filescan-windows-x64/filescan.exe
+          filescan-linux-x64/filescan
+          filescan-macos-x64/filescan
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
