@@ -119,7 +119,7 @@ jobs:
           - **Windows x86**: filescan-windows-x86.zip
           - **Windows x64**: filescan-windows-x64.zip  
           - **Linux x64**: filescan-linux-x64.zip
-          - **macOS x64**: filescan-macos-x64.zip
+          # - **macOS x64**: filescan-macos-x64.zip
           
           ### 使用方法
           ```bash
@@ -134,7 +134,7 @@ jobs:
           filescan-windows-x86/filescan.exe
           filescan-windows-x64/filescan.exe
           filescan-linux-x64/filescan
-          filescan-macos-x64/filescan
+          # filescan-macos-x64/filescan
         draft: false
         prerelease: false
       env:
